@@ -2,7 +2,11 @@ module github.com/denysdovzhenko/url-shortener
 
 go 1.26.5
 
-require github.com/go-chi/chi/v5 v5.3.1
+require (
+	github.com/caarlos0/env/v11 v11.4.1
+	github.com/go-chi/chi/v5 v5.3.1
+	github.com/joho/godotenv v1.5.1
+)
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
@@ -17,7 +21,6 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gohugoio/hashstructure v0.6.0 // indirect
 	github.com/gohugoio/hugo v0.164.0 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
