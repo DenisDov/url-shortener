@@ -8,12 +8,16 @@ main_package_path = ./cmd/api/
 binary_name = url-shortener
 build_dir = ./bin
 
-.PHONY: help run dev build test confirm clean
+.PHONY: help setup run dev build test confirm clean ci
 
 ## help: show this help message
 help:
 	@echo "Available commands:"
 	@grep -E '^## ' Makefile | sed 's/## /  /' | column -t -s ':'
+
+## setup: install dependencies
+setup:
+	go mod tidy
 
 ## run: run the application locally
 run:
@@ -46,3 +50,6 @@ clean: confirm
 	@rm -rf tmp/
 	@rm -rf ${build_dir}
 	@go clean
+
+## ci: build and test pipeline
+ci: build test
