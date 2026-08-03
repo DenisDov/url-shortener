@@ -20,7 +20,12 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
+		_, err := w.Write([]byte("welcome"))
+		if err != nil {
+			log.Printf("Failed to write response: %v", err)
+		}
 	})
-	http.ListenAndServe(":8080", r)
+	if err := http.ListenAndServe(":8080", r); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
