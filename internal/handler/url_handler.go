@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 
 	"github.com/denysdovzhenko/url-shortener/internal/repository"
 	"github.com/denysdovzhenko/url-shortener/internal/service"
@@ -24,7 +26,17 @@ func NewURLHandler(svc *service.ShortenerService, logger *slog.Logger) *URLHandl
 
 func (h *URLHandler) Routes(r chi.Router) {
 	r.Get("/health", h.Health)
-	r.Post("/api/v1/shorten", h.Shorten)
+
+	// Directly exposed to clients, no reverse proxy in front — if that
+	// changes, swap ClientIPFromRemoteAddr for ClientIPFromXFF/ClientIPFromHeader
+	// matching the new proxy's hop.
+	r.With(
+		middleware.ClientIPFromRemoteAddr,
+		httprate.LimitBy(20, time.Minute, func(r *http.Request) (string, error) {
+			return httprate.CanonicalizeIP(middleware.GetClientIP(r.Context())), nil
+		}),
+	).Post("/api/v1/shorten", h.Shorten)
+
 	r.Get("/api/v1/links/{code}", h.Lookup)
 	r.Get("/{code}", h.Redirect)
 }
