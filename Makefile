@@ -9,6 +9,7 @@ BINARY_NAME = $(SERVICE_NAME)
 BUILD_DIR = ./bin
 MIGRATIONS_DIR := internal/db/migrations
 BACKUP_DIR := backups
+COVERAGE_FILE := coverage.txt
 
 # Every target here is phony. .PHONY is declared next to each recipe rather than
 # as one list at the top so a new target cannot be added without it.
@@ -96,6 +97,13 @@ test:
 	@echo "Running tests..."
 	@go test -v ./...
 
+## cover: run tests with coverage and open the html report
+.PHONY: cover
+cover:
+	@echo "Running tests with coverage..."
+	@go test -covermode=atomic -coverprofile=$(COVERAGE_FILE) ./...
+	@go tool cover -html=$(COVERAGE_FILE)
+
 .PHONY: confirm
 confirm:
 	@echo -n 'Are you sure? [y/N] ' && read ans && [ $${ans:-N} = y ]
@@ -106,6 +114,7 @@ clean: confirm
 	@echo "Cleaning..."
 	@rm -rf tmp/
 	@rm -rf $(BUILD_DIR)
+	@rm -f $(COVERAGE_FILE)
 	@go clean
 
 ## ci: setup, vet, test, and build pipeline
