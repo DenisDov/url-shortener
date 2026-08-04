@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ddovzhenko/urlshortener/internal/cache"
-	"github.com/ddovzhenko/urlshortener/internal/repository"
-	"github.com/ddovzhenko/urlshortener/internal/service"
-	"github.com/ddovzhenko/urlshortener/internal/store"
+	"github.com/denysdovzhenko/url-shortener/internal/cache"
+	"github.com/denysdovzhenko/url-shortener/internal/repository"
+	"github.com/denysdovzhenko/url-shortener/internal/service"
+	"github.com/denysdovzhenko/url-shortener/internal/store"
 )
 
 // fakeRepo is an in-memory URLRepository so these tests never touch Postgres.

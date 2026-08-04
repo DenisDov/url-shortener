@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/ddovzhenko/urlshortener/internal/repository"
-	"github.com/ddovzhenko/urlshortener/internal/service"
+	"github.com/denysdovzhenko/url-shortener/internal/repository"
+	"github.com/denysdovzhenko/url-shortener/internal/service"
 )
 
 type URLHandler struct {

@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/ddovzhenko/urlshortener/internal/cache"
-	"github.com/ddovzhenko/urlshortener/internal/repository"
-	"github.com/ddovzhenko/urlshortener/pkg/base62"
+	"github.com/denysdovzhenko/url-shortener/internal/cache"
+	"github.com/denysdovzhenko/url-shortener/internal/repository"
+	"github.com/denysdovzhenko/url-shortener/pkg/base62"
 )
 
 var (

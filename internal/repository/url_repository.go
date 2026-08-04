@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/ddovzhenko/urlshortener/internal/store"
+	"github.com/denysdovzhenko/url-shortener/internal/store"
 )
 
 var ErrNotFound = errors.New("url not found")

@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ddovzhenko/urlshortener/internal/store"
+	"github.com/denysdovzhenko/url-shortener/internal/store"
 )
 
 // Store bundles the connection pool with generated queries and adds
