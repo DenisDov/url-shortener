@@ -1,0 +1,20 @@
+# Keep secrets out of the build context -- the api reads its config from the
+# environment compose injects, never from a baked-in file.
+.env
+
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+bin/
+tmp/
+backups/
+coverage.*
+*.test
+
+Dockerfile
+.dockerignore
+docker-compose.yaml
+README.md

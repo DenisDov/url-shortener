@@ -1,31 +1,100 @@
 package main
 
 import (
-	"log"
+	"context"
+	"errors"
+	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/denysdovzhenko/url-shortener/internal/cache"
 	"github.com/denysdovzhenko/url-shortener/internal/config"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"github.com/denysdovzhenko/url-shortener/internal/handler"
+	"github.com/denysdovzhenko/url-shortener/internal/repository"
+	"github.com/denysdovzhenko/url-shortener/internal/service"
 )
 
 func main() {
-	// 1. Load Configuration
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	if err := run(logger); err != nil {
+		logger.Error("fatal error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		return err
 	}
-	log.Printf("Starting application in %s mode on port %s", cfg.AppEnv, cfg.AppPort)
 
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte("welcome"))
-		if err != nil {
-			log.Printf("Failed to write response: %v", err)
-		}
-	})
-	if err := http.ListenAndServe(":8080", r); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
 	}
+	defer pool.Close()
+
+	if err := pool.Ping(ctx); err != nil {
+		return err
+	}
+	logger.Info("connected to postgres")
+
+	redisCache := cache.NewRedisCache(cfg.RedisAddr, cfg.RedisDB)
+	defer redisCache.Close()
+
+	if err := redisCache.Ping(ctx); err != nil {
+		return err
+	}
+	logger.Info("connected to redis")
+
+	store := repository.NewStore(pool)
+	urlRepo := repository.NewURLRepository(store)
+
+	shortenerSvc := service.NewShortenerService(
+		urlRepo,
+		redisCache,
+		cfg.BaseURL,
+		cfg.CodeLength,
+		cfg.CacheTTL,
+		logger,
+	)
+
+	urlHandler := handler.NewURLHandler(shortenerSvc, logger)
+	router := handler.NewRouter(urlHandler)
+
+	srv := &http.Server{
+		Addr:         ":" + cfg.HTTPPort,
+		Handler:      router,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		logger.Info("starting server", "port", cfg.HTTPPort)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+		}
+	}()
+
+	select {
+	case err := <-serverErr:
+		return err
+	case <-ctx.Done():
+		logger.Info("shutdown signal received")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return srv.Shutdown(shutdownCtx)
 }
