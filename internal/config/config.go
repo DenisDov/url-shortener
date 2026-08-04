@@ -26,6 +26,12 @@ type Config struct {
 
 	ReadTimeout  time.Duration `env:"READ_TIMEOUT"  envDefault:"5s"`
 	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`
+	// IdleTimeout is set explicitly because net/http falls back to ReadTimeout
+	// when it is zero, which would cap keep-alive reuse at 5s. Keep it longer
+	// than the idle timeout of any proxy in front of the service (ALB 60s,
+	// nginx keepalive_timeout 75s) so the proxy never reuses a connection the
+	// server is closing at that moment.
+	IdleTimeout time.Duration `env:"IDLE_TIMEOUT" envDefault:"120s"`
 }
 
 // Load reads environment variables and populates the Config struct.

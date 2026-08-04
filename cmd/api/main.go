@@ -76,6 +76,7 @@ func run(logger *slog.Logger) error {
 		Handler:      router,
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 
 	serverErr := make(chan error, 1)

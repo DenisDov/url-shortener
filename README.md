@@ -139,6 +139,7 @@ Config comes from environment variables, loaded from `.env` if present (see `.en
 | `CACHE_TTL` | `1h` | How long a resolved code stays in Redis |
 | `READ_TIMEOUT` | `5s` | HTTP read timeout |
 | `WRITE_TIMEOUT` | `10s` | HTTP write timeout |
+| `IDLE_TIMEOUT` | `120s` | How long an idle keep-alive connection is held open |
 
 `DATABASE_URL` and `REDIS_ADDR` arrive fully formed rather than assembled from parts. Compose builds the DSN from the `POSTGRES_*` variables and points the API at the `db` and `redis` service names; outside Compose the Makefile passes `DB_DSN` through as `DATABASE_URL`. That is why `.env` carries both a `DB_DSN` (localhost) and the `POSTGRES_*` parts (compose-internal) — they describe the same database reached two different ways.
 

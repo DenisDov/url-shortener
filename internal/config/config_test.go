@@ -101,6 +101,7 @@ func TestLoadAppliesDefaults(t *testing.T) {
 		{"CacheTTL", cfg.CacheTTL, time.Hour},
 		{"ReadTimeout", cfg.ReadTimeout, 5 * time.Second},
 		{"WriteTimeout", cfg.WriteTimeout, 10 * time.Second},
+		{"IdleTimeout", cfg.IdleTimeout, 120 * time.Second},
 	}
 
 	for _, c := range checks {
