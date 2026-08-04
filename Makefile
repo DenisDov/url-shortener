@@ -5,10 +5,12 @@ ifneq (,$(wildcard ./.env))
 endif
 
 MAIN_PACKAGE_PATH = ./cmd/api/
-BINARY_NAME = url-shortener
+BINARY_NAME = $(SERVICE_NAME)
 BUILD_DIR = ./bin
+MIGRATIONS_DIR := internal/db/migrations
+BACKUP_DIR := backups
 
-.PHONY: help setup run dev build build-local lint vet test confirm clean ci
+.PHONY: help setup run dev build build-local lint vet test confirm clean ci up down migrate-up migrate-down new-migration sqlc
 
 .DEFAULT_GOAL := help
 
@@ -21,15 +23,24 @@ help:
 setup:
 	go mod tidy
 
+up:            ; docker compose up -d --build
+down:          ; docker compose down
+migrate-up:    ; go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DB_DSN)" up
+migrate-down:  ; go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DB_DSN)" down
+new-migration:
+	@test -n "$(name)" || { echo "usage: make new-migration name=add_foo"; exit 1; }
+	go tool goose -dir $(MIGRATIONS_DIR) create $(name) sql
+sqlc:          ; go tool sqlc generate
+
 ## run: run the application locally
 run:
 	@echo "Starting application..."
-	@go run $(MAIN_PACKAGE_PATH)
+	@DATABASE_URL="$(DB_DSN)" go run $(MAIN_PACKAGE_PATH)
 
 ## dev: run the application with live-reload
 dev:
 	@echo "Starting application using air..."
-	@go tool air
+	@DATABASE_URL="$(DB_DSN)" go tool air
 
 ## build-local: build the application for the host platform
 build-local:
