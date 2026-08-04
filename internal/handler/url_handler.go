@@ -25,6 +25,7 @@ func NewURLHandler(svc *service.ShortenerService, logger *slog.Logger) *URLHandl
 func (h *URLHandler) Routes(r chi.Router) {
 	r.Get("/health", h.Health)
 	r.Post("/api/v1/shorten", h.Shorten)
+	r.Get("/api/v1/links/{code}", h.Lookup)
 	r.Get("/{code}", h.Redirect)
 }
 
@@ -64,6 +65,38 @@ func (h *URLHandler) Shorten(w http.ResponseWriter, r *http.Request) {
 		ShortURL:  result.ShortURL,
 		LongURL:   result.LongURL,
 		ExpiresAt: result.ExpiresAt,
+	})
+}
+
+type linkResponse struct {
+	ShortCode  string     `json:"short_code"`
+	ShortURL   string     `json:"short_url"`
+	LongURL    string     `json:"long_url"`
+	ClickCount int64      `json:"click_count"`
+	Expired    bool       `json:"expired"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+// Lookup reports where a short code points without following it, so a link
+// can be inspected (or debugged with curl) without burning a click.
+func (h *URLHandler) Lookup(w http.ResponseWriter, r *http.Request) {
+	code := chi.URLParam(r, "code")
+
+	details, err := h.svc.Lookup(r.Context(), code)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, linkResponse{
+		ShortCode:  details.ShortCode,
+		ShortURL:   details.ShortURL,
+		LongURL:    details.LongURL,
+		ClickCount: details.ClickCount,
+		Expired:    details.Expired,
+		ExpiresAt:  details.ExpiresAt,
+		CreatedAt:  details.CreatedAt,
 	})
 }
 

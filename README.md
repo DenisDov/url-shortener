@@ -1,3 +1,1 @@
-Run dev
-
-`make dev`
+https://personal-0016.postman.co/workspace/golang-apps~e606583f-1b2f-4ff6-bb45-b44ab26cad1b/collection/5714115-576f0423-16d2-4003-81db-1680ec56d811?action=share&creator=5714115&active-environment=5714115-60d4b751-73a6-4482-bf26-42afb5107ba4

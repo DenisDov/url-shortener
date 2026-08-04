@@ -124,6 +124,37 @@ func (s *ShortenerService) Resolve(ctx context.Context, shortCode string) (strin
 	return u.LongUrl, nil
 }
 
+type LinkDetails struct {
+	ShortCode  string
+	ShortURL   string
+	LongURL    string
+	ClickCount int64
+	Expired    bool
+	ExpiresAt  *time.Time
+	CreatedAt  time.Time
+}
+
+// Lookup returns the stored record for a short code without redirecting,
+// counting a click, or touching the cache. An expired link comes back with
+// Expired set rather than as an error, so a lapsed link can still be
+// inspected -- unlike Resolve, which refuses to serve it.
+func (s *ShortenerService) Lookup(ctx context.Context, shortCode string) (LinkDetails, error) {
+	u, err := s.repo.FindByCode(ctx, shortCode)
+	if err != nil {
+		return LinkDetails{}, err // repository.ErrNotFound propagates as-is
+	}
+
+	return LinkDetails{
+		ShortCode:  u.ShortCode,
+		ShortURL:   s.baseURL + "/" + u.ShortCode,
+		LongURL:    u.LongUrl,
+		ClickCount: u.ClickCount,
+		Expired:    u.ExpiresAt != nil && u.ExpiresAt.Before(time.Now()),
+		ExpiresAt:  u.ExpiresAt,
+		CreatedAt:  u.CreatedAt,
+	}, nil
+}
+
 // registerClickAsync fires the click-count update on its own context so a
 // slow or failing DB write never blocks the redirect response.
 func (s *ShortenerService) registerClickAsync(shortCode string) {

@@ -131,6 +131,52 @@ func TestResolve_NotFound(t *testing.T) {
 	}
 }
 
+func TestLookup_ReturnsDetailsWithoutCountingClick(t *testing.T) {
+	svc, repo, _ := newTestService()
+	ctx := context.Background()
+	created, err := svc.Shorten(ctx, "https://example.com/look", nil)
+	if err != nil {
+		t.Fatalf("Shorten returned error: %v", err)
+	}
+
+	details, err := svc.Lookup(ctx, created.ShortCode)
+	if err != nil {
+		t.Fatalf("Lookup returned error: %v", err)
+	}
+	if details.LongURL != "https://example.com/look" {
+		t.Errorf("unexpected long url: %q", details.LongURL)
+	}
+	if details.Expired {
+		t.Error("expected link not to be expired")
+	}
+	if got := repo.byCode[created.ShortCode].ClickCount; got != 0 {
+		t.Errorf("expected Lookup not to register a click, got count %d", got)
+	}
+}
+
+func TestLookup_ExpiredLinkIsReturnedNotRejected(t *testing.T) {
+	svc, repo, _ := newTestService()
+	past := time.Now().Add(-time.Hour)
+	_, _ = repo.Create(context.Background(), "expired", "https://example.com/gone", &past)
+
+	details, err := svc.Lookup(context.Background(), "expired")
+	if err != nil {
+		t.Fatalf("Lookup returned error: %v", err)
+	}
+	if !details.Expired {
+		t.Error("expected Expired to be true for a lapsed link")
+	}
+}
+
+func TestLookup_NotFound(t *testing.T) {
+	svc, _, _ := newTestService()
+
+	_, err := svc.Lookup(context.Background(), "missing")
+	if err != repository.ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestResolve_ExpiredLink(t *testing.T) {
 	svc, repo, _ := newTestService()
 	past := time.Now().Add(-time.Hour)
