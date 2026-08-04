@@ -8,7 +8,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(urlHandler *URLHandler) http.Handler {
+func NewRouter(urlHandler *URLHandler, static *StaticHandler) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -17,6 +17,7 @@ func NewRouter(urlHandler *URLHandler) http.Handler {
 	r.Use(middleware.Timeout(10 * time.Second))
 
 	urlHandler.Routes(r)
+	static.Routes(r)
 
 	return r
 }
