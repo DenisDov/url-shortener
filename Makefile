@@ -10,7 +10,7 @@ BUILD_DIR = ./bin
 MIGRATIONS_DIR := internal/db/migrations
 BACKUP_DIR := backups
 
-.PHONY: help setup run dev build build-local lint vet test confirm clean ci up down migrate-up migrate-down new-migration sqlc
+.PHONY: help setup run dev build build-local lint vet test confirm clean ci up down migrate-up migrate-down new-migration sqlc db-backup db-restore
 
 .DEFAULT_GOAL := help
 
@@ -23,13 +23,19 @@ help:
 setup:
 	go mod tidy
 
+## up: start db, redis and api in docker compose (does not run migrations)
 up:            ; docker compose up -d --build
+## down: stop the docker compose stack
 down:          ; docker compose down
+## migrate-up: apply one goose migration
 migrate-up:    ; go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DB_DSN)" up
+## migrate-down: roll back one goose migration
 migrate-down:  ; go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DB_DSN)" down
+## new-migration: create a migration, e.g. make new-migration name=add_foo
 new-migration:
 	@test -n "$(name)" || { echo "usage: make new-migration name=add_foo"; exit 1; }
 	go tool goose -dir $(MIGRATIONS_DIR) create $(name) sql
+## sqlc: regenerate internal/store from db/queries
 sqlc:          ; go tool sqlc generate
 
 ## run: run the application locally
@@ -82,12 +88,14 @@ clean: confirm
 ## ci: setup, vet, test, and build pipeline
 ci: setup vet test build-local
 
+## db-backup: dump the compose db to backups/
 db-backup:
 	@mkdir -p $(BACKUP_DIR)
 	@echo "Backing up database..."
 	docker compose exec -T db pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) -F c > $(BACKUP_DIR)/db_backup_$$(date +%Y%m%d_%H%M%S).dump
 	@echo "Backup complete!"
 
+## db-restore: restore the compose db, e.g. make db-restore file=backups/db_backup_XXX.dump
 db-restore:
 	@test -n "$(file)" || { echo "usage: make db-restore file=backups/db_backup_XXX.dump"; exit 1; }
 	@echo "Restoring database from $(file)..."
