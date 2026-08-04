@@ -81,3 +81,15 @@ clean: confirm
 
 ## ci: setup, vet, test, and build pipeline
 ci: setup vet test build-local
+
+db-backup:
+	@mkdir -p $(BACKUP_DIR)
+	@echo "Backing up database..."
+	docker compose exec -T db pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) -F c > $(BACKUP_DIR)/db_backup_$$(date +%Y%m%d_%H%M%S).dump
+	@echo "Backup complete!"
+
+db-restore:
+	@test -n "$(file)" || { echo "usage: make db-restore file=backups/db_backup_XXX.dump"; exit 1; }
+	@echo "Restoring database from $(file)..."
+	docker compose exec -T db pg_restore -U $(POSTGRES_USER) -d $(POSTGRES_DB) -1 --clean --if-exists < $(file)
+	@echo "Restore complete!"

@@ -1,11 +1,14 @@
 package config
 
 import (
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoad(t *testing.T) {
-	// 1. Define the table structure
+	const validDSN = "postgres://user:supersecretpassword@localhost:5432/urlshortener?sslmode=disable"
+
 	tests := []struct {
 		name        string
 		envs        map[string]string // Key-value pairs to set in the environment
@@ -13,71 +16,96 @@ func TestLoad(t *testing.T) {
 		expectedErr string
 	}{
 		{
-			name: "Development allows empty database password",
+			name: "Succeeds with only DATABASE_URL set",
 			envs: map[string]string{
-				"APP_ENV":     "development",
-				"DB_PASSWORD": "",
+				"DATABASE_URL": validDSN,
 			},
 			wantErr: false,
 		},
 		{
-			name: "Production fails when database password is missing",
+			name: "Fails when DATABASE_URL is missing",
 			envs: map[string]string{
-				"APP_ENV":     "production",
-				"DB_PASSWORD": "", // Deliberately empty
+				"DATABASE_URL": "", // Deliberately empty
 			},
 			wantErr:     true,
-			expectedErr: "DB_PASSWORD is required in production environment",
+			expectedErr: "DATABASE_URL is required",
 		},
 		{
-			name: "Production succeeds with valid password",
+			name: "Fails on a non-positive code length",
 			envs: map[string]string{
-				"APP_ENV":     "production",
-				"DB_PASSWORD": "supersecretpassword",
+				"DATABASE_URL": validDSN,
+				"CODE_LENGTH":  "0",
 			},
-			wantErr: false,
+			wantErr:     true,
+			expectedErr: "CODE_LENGTH must be positive, got 0",
+		},
+		{
+			name: "Fails on an unparseable duration",
+			envs: map[string]string{
+				"DATABASE_URL": validDSN,
+				"CACHE_TTL":    "not-a-duration",
+			},
+			wantErr:     true,
+			expectedErr: "failed to parse environment variables",
 		},
 	}
 
-	// 2. Iterate over the test cases
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			// 3. Inject the environment variables for this specific test
+			// Inject the environment variables for this specific test
 			for key, val := range tt.envs {
 				t.Setenv(key, val)
 			}
 
-			// 4. Call the function
 			cfg, err := Load()
 
-			// 5. Validate the error state
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Load() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			// 6. Validate the exact error message if an error was expected
-			if tt.wantErr && err.Error() != tt.expectedErr {
-				t.Errorf("Load() error message = %q, want %q", err.Error(), tt.expectedErr)
+			if tt.wantErr {
+				if !strings.Contains(err.Error(), tt.expectedErr) {
+					t.Errorf("Load() error message = %q, want it to contain %q", err, tt.expectedErr)
+				}
+				return
 			}
 
-			// Optional: Validate the connection string on success
-			if !tt.wantErr && tt.envs["APP_ENV"] == "production" {
-				expectedSubstring := "supersecretpassword"
-				// A simple check to ensure the password made it into the DBUrl
-				if !contains(cfg.DBUrl, expectedSubstring) {
-					t.Errorf("Expected DBUrl to contain the password, got %q", cfg.DBUrl)
-				}
+			if cfg.DatabaseURL != tt.envs["DATABASE_URL"] {
+				t.Errorf("DatabaseURL = %q, want %q", cfg.DatabaseURL, tt.envs["DATABASE_URL"])
 			}
 		})
 	}
 }
 
-// Helper function for the optional substring check
-func contains(s, substr string) bool {
-	// We could import "strings", but writing a quick check keeps imports light
-	// In real code, just import "strings" and use strings.Contains(s, substr)
-	importStrings := false
-	_ = importStrings
-	return true
+// Defaults matter here: docker compose only passes a handful of variables, so
+// everything else the server needs to boot has to come from the envDefault tags.
+func TestLoadAppliesDefaults(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://localhost:5432/db")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() unexpected error: %v", err)
+	}
+
+	checks := []struct {
+		field string
+		got   any
+		want  any
+	}{
+		{"AppEnv", cfg.AppEnv, "development"},
+		{"HTTPPort", cfg.HTTPPort, "8080"},
+		{"RedisAddr", cfg.RedisAddr, "localhost:6379"},
+		{"RedisDB", cfg.RedisDB, 0},
+		{"BaseURL", cfg.BaseURL, "http://localhost:8080"},
+		{"CodeLength", cfg.CodeLength, 7},
+		{"CacheTTL", cfg.CacheTTL, time.Hour},
+		{"ReadTimeout", cfg.ReadTimeout, 5 * time.Second},
+		{"WriteTimeout", cfg.WriteTimeout, 10 * time.Second},
+	}
+
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("%s = %v, want %v", c.field, c.got, c.want)
+		}
+	}
 }
