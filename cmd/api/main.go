@@ -17,6 +17,7 @@ import (
 	"github.com/denysdovzhenko/url-shortener/internal/handler"
 	"github.com/denysdovzhenko/url-shortener/internal/repository"
 	"github.com/denysdovzhenko/url-shortener/internal/service"
+	"github.com/denysdovzhenko/url-shortener/web"
 )
 
 func main() {
@@ -69,7 +70,8 @@ func run(logger *slog.Logger) error {
 	)
 
 	urlHandler := handler.NewURLHandler(shortenerSvc, logger)
-	router := handler.NewRouter(urlHandler)
+	staticHandler := handler.NewStaticHandler(web.Static())
+	router := handler.NewRouter(urlHandler, staticHandler)
 
 	srv := &http.Server{
 		Addr:         ":" + cfg.HTTPPort,

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>URL Shortener</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>%F0%9F%94%97</text></svg>">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<main class="card">
+  <h1>URL Shortener</h1>
+  <p class="muted">Paste a link, get a short one.</p>
+
+  <form id="shorten-form" novalidate>
+    <label for="url">Long URL</label>
+    <input id="url" name="url" type="url" inputmode="url" autocomplete="off"
+           placeholder="https://example.com/some/very/long/path" required>
+
+    <label for="ttl">Expires</label>
+    <select id="ttl" name="ttl">
+      <option value="">Never</option>
+      <option value="3600">In 1 hour</option>
+      <option value="86400">In 1 day</option>
+      <option value="604800">In 7 days</option>
+      <option value="2592000">In 30 days</option>
+    </select>
+
+    <button id="submit" type="submit">Shorten</button>
+    <p class="fineprint">
+      Shortening a URL that already exists returns the existing link, keeping its
+      original expiry.
+    </p>
+  </form>
+
+  <p id="error" class="error" role="alert" hidden></p>
+
+  <section id="result" class="result" hidden>
+    <div class="short-row">
+      <a id="short-url" class="short-url" target="_blank" rel="noopener noreferrer"></a>
+      <button id="copy" type="button">Copy</button>
+    </div>
+    <dl>
+      <dt>Points to</dt>
+      <dd id="long-url"></dd>
+      <dt>Expires</dt>
+      <dd id="expires"></dd>
+    </dl>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

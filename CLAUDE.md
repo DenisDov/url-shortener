@@ -44,6 +44,7 @@ internal/
   db/queries/     sqlc query definitions
   config/         env parsing (caarlos0/env) + validation
 pkg/base62/       alphabet, Encode/Decode, RandomCode (crypto/rand)
+web/              go:embed wrapper; static/ holds the frontend
 ```
 
 Dependencies point inward through interfaces. `ShortenerService` depends on `repository.URLRepository` and `cache.URLCache`, both faked in [shortener_test.go](internal/service/shortener_test.go), so service tests need neither Postgres nor Redis. Keep new business logic in `service/`; handlers should stay decode → call → map-error → encode.
@@ -64,4 +65,5 @@ Dependencies point inward through interfaces. `ShortenerService` depends on `rep
 - `Store.execTx` exists but nothing uses it yet — no multi-statement transactions in this service so far.
 - `PurgeExpired` / `DeleteExpiredURLs` are implemented but never called; there is no scheduled cleanup.
 - Redirects are `301`, so browsers cache them: click counts undercount, and a cached redirect keeps working past expiry. Likewise a code already in Redis is served without re-checking `expires_at`, so a link can outlive its TTL by up to `CACHE_TTL`.
+- The frontend is vanilla HTML/CSS/JS in `web/static/`, embedded via `go:embed` and served by `StaticHandler` on `/` and `/static/*`. No npm, no build step, same origin so no CORS. It calls `POST /api/v1/shorten` and nothing else. Keep it dependency-free — an external `<script>` would break the offline/distroless story. Note `go:embed` fails the build if `web/static/` is ever emptied.
 - No auth, no rate limiting, no HTTP-level or database integration tests.

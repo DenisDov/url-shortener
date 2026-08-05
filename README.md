@@ -24,7 +24,7 @@ Compose does not run migrations, so create the schema once the database is healt
 make migrate-up
 ```
 
-Shorten a URL:
+Open <http://localhost:8080/> for the web UI, or shorten from the terminal:
 
 ```bash
 curl -s -X POST localhost:8080/api/v1/shorten -H 'Content-Type: application/json' -d '{"url":"https://go.dev/doc/effective_go"}'
@@ -110,6 +110,10 @@ Unlike the redirect, this endpoint still serves expired links — they come back
 
 `200 OK` with `{"status":"ok"}`. Liveness only; it does not check Postgres or Redis.
 
+### `GET /` and `GET /static/*`
+
+The web UI and its assets. See [Web UI](#web-ui).
+
 ### Errors
 
 Errors are `{"error": "<message>"}` with these statuses:
@@ -122,6 +126,18 @@ Errors are `{"error": "<message>"}` with these statuses:
 | `500 Internal Server Error` | Anything else; details go to the server log, not the response |
 
 There is no authentication and no rate limiting.
+
+## Web UI
+
+`GET /` serves a single page for shortening a URL and copying the result — a form, an expiry dropdown, and the short link. It covers `POST /api/v1/shorten` only; there is no UI for lookup or stats.
+
+<p align="center">
+  <img src="docs/web-ui.png" alt="The web UI: a long URL field, an expiry dropdown, a Shorten button, and the resulting short link with a Copy button" width="560">
+</p>
+
+It is plain HTML, CSS, and JavaScript in `web/static/`, embedded into the binary with `go:embed` and served on the same origin as the API, so there is no build step, no asset directory to deploy, and no CORS configuration. Editing the files requires a rebuild — `make dev` picks that up automatically.
+
+Routing is unaffected: chi matches the literal `/static` segment ahead of `/{code}`, and `/` never matches `/{code}`. The only cost is that the short code `static` is now unreachable, out of 62⁷ possibilities.
 
 ## Configuration
 
@@ -194,6 +210,8 @@ internal/
   db/             goose migrations + sqlc query definitions
   config/         env parsing and validation
 pkg/base62/       base62 alphabet, encode/decode, crypto/rand code generation
+web/              go:embed wrapper + static/ frontend assets
+docs/             images and other assets referenced by the README
 ```
 
 Layers depend inward through interfaces: the service depends on `repository.URLRepository` and `cache.URLCache`, both of which are faked in `internal/service/shortener_test.go`, so the service tests need neither Postgres nor Redis.
