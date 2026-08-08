@@ -17,6 +17,8 @@ The Makefile `include`s and exports `.env`, so most targets depend on `DB_DSN` /
 | Tests | `make test` (`go test -v ./...`) |
 | Vet / lint | `make vet` / `make lint` (golangci-lint must be installed separately) |
 | CI pipeline | `make ci` (tidy, vet, test, build) |
+| Migrate a remote DB | `make migrate-up DB_DSN="postgresql://..."` |
+| Deploy | `fly deploy` (or push to `main`) |
 
 Compose does **not** run migrations — `make migrate-up` after `make up` on a fresh database.
 
@@ -45,6 +47,8 @@ internal/
   config/         env parsing (caarlos0/env) + validation
 pkg/base62/       alphabet, Encode/Decode, RandomCode (crypto/rand)
 web/              go:embed wrapper; static/ holds the frontend
+fly.toml          Fly.io app config; non-secret [env] only
+.github/workflows/fly-deploy.yml   deploys on push to main
 ```
 
 Dependencies point inward through interfaces. `ShortenerService` depends on `repository.URLRepository` and `cache.URLCache`, both faked in [shortener_test.go](internal/service/shortener_test.go), so service tests need neither Postgres nor Redis. Keep new business logic in `service/`; handlers should stay decode → call → map-error → encode.
@@ -66,4 +70,16 @@ Dependencies point inward through interfaces. `ShortenerService` depends on `rep
 - `PurgeExpired` / `DeleteExpiredURLs` are implemented but never called; there is no scheduled cleanup.
 - Redirects are `301`, so browsers cache them: click counts undercount, and a cached redirect keeps working past expiry. Likewise a code already in Redis is served without re-checking `expires_at`, so a link can outlive its TTL by up to `CACHE_TTL`.
 - The frontend is vanilla HTML/CSS/JS in `web/static/`, embedded via `go:embed` and served by `StaticHandler` on `/` and `/static/*`. No npm, no build step, same origin so no CORS. It calls `POST /api/v1/shorten` and nothing else. Keep it dependency-free — an external `<script>` would break the offline/distroless story. Note `go:embed` fails the build if `web/static/` is ever emptied.
-- No auth, no rate limiting, no HTTP-level or database integration tests.
+- `POST /api/v1/shorten` is rate limited (httprate, 20/min, in-memory) keyed on `RemoteAddr` via `middleware.ClientIPFromRemoteAddr`. That keying is wrong behind Fly's proxy — every request looks like one client — and the limiter is per-machine, so it does not hold across scaled-out instances. Redirect and lookup are unlimited. No auth, no HTTP-level or database integration tests.
+
+### Deployment
+
+Fly.io + Neon (Postgres) + Upstash (Redis); Dockerfile builds a static binary into distroless — no shell, no on-disk assets, the frontend rides along via `go:embed`.
+
+- Secrets (`DATABASE_URL`, `REDIS_ADDR`, `REDIS_PASSWORD`) are set with `fly secrets set`; non-secret config (`APP_ENV`, `HTTP_PORT`, `REDIS_TLS`, `BASE_URL`) lives in `fly.toml` `[env]`. Don't move a secret into `fly.toml`.
+- `BASE_URL` in `fly.toml` must track the app hostname — it is what the API returns as `short_url`.
+- `REDIS_TLS=true` is mandatory for Upstash: it is TLS-only and drops a plaintext handshake, surfacing as a bare `EOF` from the startup ping in `main`, which is fatal. `NewRedisCache` sets an empty `tls.Config{}` and lets go-redis fill `ServerName` from the addr.
+- Upstash's REST URL/token are **not** used — the app speaks the Redis protocol over TCP, so it wants the endpoint host:port and password.
+- Nothing runs migrations on deploy. Apply them by hand first: `make migrate-up DB_DSN="<neon-dsn>"` (Neon needs `sslmode=require`).
+- `.github/workflows/fly-deploy.yml` deploys every push to `main` with `flyctl deploy --remote-only`; it does not run `make ci` first.
+- `min_machines_running = 0` with `auto_stop_machines` — first request after idle pays a cold start. `/health` is liveness only and touches neither Postgres nor Redis, so a green Fly check says nothing about dependencies.

@@ -4,6 +4,8 @@ A URL shortening service in Go: `POST` a long URL, get back a 7-character code, 
 
 Optional per-link TTLs let a short link expire.
 
+Runs locally on Docker Compose, and in production on Fly.io with Neon (Postgres) and Upstash (Redis) — see [Deployment](#deployment).
+
 ## Quick start
 
 Requires Docker and Go 1.26+.
@@ -123,9 +125,10 @@ Errors are `{"error": "<message>"}` with these statuses:
 | `400 Bad Request` | Malformed JSON body, or a `url` that isn't an absolute http(s) URL |
 | `404 Not Found` | No link with that code |
 | `410 Gone` | The link exists but its TTL has passed (redirect only) |
+| `429 Too Many Requests` | More than 20 `POST /api/v1/shorten` calls from one IP in a minute |
 | `500 Internal Server Error` | Anything else; details go to the server log, not the response |
 
-There is no authentication and no rate limiting.
+There is no authentication. `POST /api/v1/shorten` is rate limited to 20 requests per minute per client IP (`httprate`, in-memory); the redirect and lookup endpoints are not limited.
 
 ## Web UI
 
@@ -150,6 +153,8 @@ Config comes from environment variables, loaded from `.env` if present (see `.en
 | `DATABASE_URL` | — | **Required.** Postgres connection string |
 | `REDIS_ADDR` | `localhost:6379` | Redis host:port |
 | `REDIS_DB` | `0` | Redis database number |
+| `REDIS_PASSWORD` | — | Redis password; empty for local/compose Redis, required by hosted providers |
+| `REDIS_TLS` | `false` | Dial Redis over TLS. Upstash and most hosted providers need `true` |
 | `BASE_URL` | `http://localhost:8080` | Public origin used to build returned short URLs |
 | `CODE_LENGTH` | `7` | Characters per short code |
 | `CACHE_TTL` | `1h` | How long a resolved code stays in Redis |
@@ -160,6 +165,58 @@ Config comes from environment variables, loaded from `.env` if present (see `.en
 `DATABASE_URL` and `REDIS_ADDR` arrive fully formed rather than assembled from parts. Compose builds the DSN from the `POSTGRES_*` variables and points the API at the `db` and `redis` service names; outside Compose the Makefile passes `DB_DSN` through as `DATABASE_URL`. That is why `.env` carries both a `DB_DSN` (localhost) and the `POSTGRES_*` parts (compose-internal) — they describe the same database reached two different ways.
 
 Compose publishes Postgres on `DB_PORT` (`5433` in the example, since 5432 is often already taken) and the API on `API_PORT`.
+
+## Deployment
+
+The service runs on [Fly.io](https://fly.io) with Postgres on [Neon](https://neon.tech) and Redis on [Upstash](https://upstash.com) — three managed pieces, no servers to keep. `fly.toml` holds the non-secret config; connection strings and passwords are Fly secrets.
+
+The Dockerfile builds a static `CGO_ENABLED=0` binary into `gcr.io/distroless/static-debian12:nonroot`, so the deployed image has no shell, no package manager, and no assets on disk — the frontend is embedded in the binary via `go:embed`.
+
+### 1. Postgres on Neon
+
+Create a project, copy the connection string, and run the migrations against it from your machine. `make migrate-up` takes `DB_DSN` as an override, so no `.env` editing is needed:
+
+```bash
+make migrate-up DB_DSN="postgresql://user:password@host.neon.tech/dbname?sslmode=require"
+```
+
+Repeat that for each new migration — nothing in the deploy pipeline runs goose, so the schema is applied by hand before the code that needs it ships.
+
+### 2. Redis on Upstash
+
+Create a database and copy its **Redis endpoint and password** from the connection details — the host:port pair and the password, *not* the REST URL and token.
+
+### 3. Fly.io
+
+Install `flyctl`, then from the repository root:
+
+```bash
+fly launch
+```
+
+`fly launch` detects the Dockerfile and writes `fly.toml`. Then set the secrets — these stay out of the repo and are injected as environment variables at boot:
+
+```bash
+fly secrets set DATABASE_URL="postgresql://user:password@host.neon.tech/dbname?sslmode=require" REDIS_ADDR="your-db.upstash.io:6379" REDIS_PASSWORD="your-upstash-password"
+```
+
+```bash
+fly deploy
+```
+
+`REDIS_TLS=true` and `APP_ENV=production` live in `fly.toml` under `[env]` because they are not secret. **`BASE_URL` also lives there and must match the app's hostname** — it is what the API echoes back as `short_url`, so a stale value hands out short links pointing at the wrong host.
+
+Deployment gotchas worth knowing:
+
+- **Upstash is TLS-only.** Without `REDIS_TLS=true` the handshake is dropped and the startup ping fails with a bare `EOF` rather than anything mentioning TLS. `main` treats that ping as fatal, so the machine never becomes healthy.
+- **Neon needs `sslmode=require`** in the DSN; its pooled connection string is the one to use for a service that keeps a pgx pool open.
+- **Machines scale to zero.** `min_machines_running = 0` with `auto_stop_machines`, so the first request after an idle period pays a cold start.
+- **The rate limiter keys off `RemoteAddr`.** Behind Fly's proxy that is not the end user's address, so on Fly the 20/min budget is shared rather than per-client. Fixing it means switching `ClientIPFromRemoteAddr` to the XFF-based variant in [url_handler.go](internal/handler/url_handler.go) — see the comment there.
+- **`/health` is liveness only.** It answers `200` without touching Postgres or Redis, so a passing Fly health check does not prove the dependencies are reachable.
+
+### Continuous deployment
+
+[`.github/workflows/fly-deploy.yml`](.github/workflows/fly-deploy.yml) runs `flyctl deploy --remote-only` on every push to `main`, using a `FLY_API_TOKEN` repository secret. It builds on Fly's remote builders, so nothing is built in the Actions runner. Note that it deploys directly — the workflow does not run `make ci` first, and migrations are still your job.
 
 ## Development
 
