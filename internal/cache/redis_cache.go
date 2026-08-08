@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"time"
 
@@ -22,13 +23,19 @@ type RedisCache struct {
 	client *redis.Client
 }
 
-func NewRedisCache(addr string, db int) *RedisCache {
-	return &RedisCache{
-		client: redis.NewClient(&redis.Options{
-			Addr: addr,
-			DB:   db,
-		}),
+func NewRedisCache(addr string, db int, password string, useTLS bool) *RedisCache {
+	opts := &redis.Options{
+		Addr:     addr,
+		DB:       db,
+		Password: password,
 	}
+	if useTLS {
+		// ServerName is left unset: go-redis dials with tls.DialWithDialer,
+		// which fills it in from addr's host when the config doesn't set one.
+		opts.TLSConfig = &tls.Config{}
+	}
+
+	return &RedisCache{client: redis.NewClient(opts)}
 }
 
 func (c *RedisCache) Ping(ctx context.Context) error {

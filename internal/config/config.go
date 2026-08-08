@@ -15,14 +15,18 @@ import (
 // POSTGRES_* variables, and outside compose the Makefile passes DB_DSN through.
 // One value, one source, no chance of the two drifting apart.
 type Config struct {
-	AppEnv      string        `env:"APP_ENV"       envDefault:"development"`
-	HTTPPort    string        `env:"HTTP_PORT"     envDefault:"8080"`
-	DatabaseURL string        `env:"DATABASE_URL"`
-	RedisAddr   string        `env:"REDIS_ADDR"    envDefault:"localhost:6379"`
-	RedisDB     int           `env:"REDIS_DB"      envDefault:"0"`
-	BaseURL     string        `env:"BASE_URL"      envDefault:"http://localhost:8080"`
-	CodeLength  int           `env:"CODE_LENGTH"   envDefault:"7"`
-	CacheTTL    time.Duration `env:"CACHE_TTL"     envDefault:"1h"`
+	AppEnv        string `env:"APP_ENV"       envDefault:"development"`
+	HTTPPort      string `env:"HTTP_PORT"     envDefault:"8080"`
+	DatabaseURL   string `env:"DATABASE_URL"`
+	RedisAddr     string `env:"REDIS_ADDR"     envDefault:"localhost:6379"`
+	RedisDB       int    `env:"REDIS_DB"       envDefault:"0"`
+	RedisPassword string `env:"REDIS_PASSWORD" envDefault:""`
+	// RedisTLS is required by hosted Redis providers (e.g. Upstash) that
+	// terminate TLS on the same port; unset for a plain local/compose Redis.
+	RedisTLS   bool          `env:"REDIS_TLS" envDefault:"false"`
+	BaseURL    string        `env:"BASE_URL"      envDefault:"http://localhost:8080"`
+	CodeLength int           `env:"CODE_LENGTH"   envDefault:"7"`
+	CacheTTL   time.Duration `env:"CACHE_TTL"     envDefault:"1h"`
 
 	ReadTimeout  time.Duration `env:"READ_TIMEOUT"  envDefault:"5s"`
 	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`

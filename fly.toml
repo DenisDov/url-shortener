@@ -1,0 +1,42 @@
+# fly.toml app configuration file generated for url-shortener-kind-field-2317 on 2026-08-08T10:00:46+03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'url-shortener-kind-field-2317'
+primary_region = 'fra'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+# Non-secret config only. DATABASE_URL, REDIS_ADDR and REDIS_PASSWORD are set
+# with `fly secrets set` so they never land in the repo.
+#
+# REDIS_TLS matters: Upstash is TLS-only and drops a plaintext handshake, which
+# surfaces as a bare "EOF" from the startup Redis ping, not a TLS error.
+[env]
+  APP_ENV = 'production'
+  HTTP_PORT = '8080'
+  REDIS_TLS = 'true'
+  # Must track the app name above -- it is what the API returns as short_url.
+  BASE_URL = 'https://url-shortener-kind-field-2317.fly.dev'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[http_service.checks]]
+  path = '/health'
+  method = 'GET'
+  interval = '30s'
+  timeout = '5s'
+  grace_period = '10s'
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
