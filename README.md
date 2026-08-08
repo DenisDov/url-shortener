@@ -6,6 +6,18 @@ Optional per-link TTLs let a short link expire.
 
 Runs locally on Docker Compose, and in production on Fly.io with Neon (Postgres) and Upstash (Redis) — see [Deployment](#deployment).
 
+## Contents
+
+- [Quick start](#quick-start) — get the stack running in three commands
+- [API](#api) — endpoints, request and response shapes, error statuses
+- [Web UI](#web-ui) — the embedded single-page frontend
+- [Configuration](#configuration) — environment variables and defaults
+- [Deployment](#deployment) — Fly.io + Neon + Upstash, and the gotchas
+- [Development](#development) — make targets and the schema-change flow
+- [Architecture](#architecture) — layout, request paths, behaviour worth knowing
+- [Testing](#testing) — what is covered and what isn't
+- [Reference](#reference) — Postman collection
+
 ## Quick start
 
 Requires Docker and Go 1.26+.
