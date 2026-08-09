@@ -41,9 +41,9 @@ internal/
   service/        validation, dedup, code generation, collision retry, cache policy
   repository/     URLRepository interface + Store (pool + generated queries + execTx)
   cache/          URLCache interface + Redis implementation
-  store/          sqlc-generated — DO NOT EDIT
   db/migrations/  goose SQL
   db/queries/     sqlc query definitions
+  db/sqlc/        sqlc-generated — DO NOT EDIT
   config/         env parsing (caarlos0/env) + validation
 pkg/base62/       alphabet, Encode/Decode, RandomCode (crypto/rand)
 web/              go:embed wrapper; static/ holds the frontend
@@ -61,7 +61,7 @@ Dependencies point inward through interfaces. `ShortenerService` depends on `rep
 
 ### Conventions and gotchas
 
-- **Never hand-edit `internal/store/`.** Schema change flow: new goose migration → edit `internal/db/queries/urls.sql` → `make sqlc` → `make migrate-up`.
+- **Never hand-edit `internal/db/sqlc/`.** Schema change flow: new goose migration → edit `internal/db/queries/urls.sql` → `make sqlc` → `make migrate-up`.
 - `sqlc.yaml` overrides `timestamptz` to `time.Time` and nullable `timestamptz` to `*time.Time`; a nullable timestamp column needs both override entries or it lands as a pgtype.
 - Errors cross layers as sentinels — `repository.ErrNotFound`, `service.ErrInvalidURL`, `service.ErrLinkExpired`, `cache.ErrCacheMiss` — and `handleServiceError` in [url_handler.go](internal/handler/url_handler.go) is the single place they become status codes (404/400/410, else 500). A new failure mode needs a sentinel plus a case there, not an ad-hoc `w.WriteHeader`.
 - `isUniqueViolation` in [shortener.go](internal/service/shortener.go) detects Postgres `23505` via an anonymous `SQLState() string` interface, deliberately keeping pgconn out of the service layer. Preserve that if you touch it.

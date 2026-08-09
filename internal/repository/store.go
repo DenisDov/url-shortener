@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/denysdovzhenko/url-shortener/internal/store"
+	"github.com/denysdovzhenko/url-shortener/internal/db/sqlc"
 )
 
 // Store bundles the connection pool with generated queries and adds
@@ -14,18 +14,18 @@ import (
 // portfolio projects, kept here for consistency even though this service
 // doesn't need multi-statement transactions yet.
 type Store struct {
-	*store.Queries
+	*sqlc.Queries
 	pool *pgxpool.Pool
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{
-		Queries: store.New(pool),
+		Queries: sqlc.New(pool),
 		pool:    pool,
 	}
 }
 
-func (s *Store) execTx(ctx context.Context, fn func(*store.Queries) error) error {
+func (s *Store) execTx(ctx context.Context, fn func(*sqlc.Queries) error) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)

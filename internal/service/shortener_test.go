@@ -10,38 +10,38 @@ import (
 	"github.com/denysdovzhenko/url-shortener/internal/cache"
 	"github.com/denysdovzhenko/url-shortener/internal/repository"
 	"github.com/denysdovzhenko/url-shortener/internal/service"
-	"github.com/denysdovzhenko/url-shortener/internal/store"
+	"github.com/denysdovzhenko/url-shortener/internal/db/sqlc"
 )
 
 // fakeRepo is an in-memory URLRepository so these tests never touch Postgres.
 type fakeRepo struct {
-	byCode map[string]store.Url
-	byLong map[string]store.Url
+	byCode map[string]sqlc.Url
+	byLong map[string]sqlc.Url
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{byCode: map[string]store.Url{}, byLong: map[string]store.Url{}}
+	return &fakeRepo{byCode: map[string]sqlc.Url{}, byLong: map[string]sqlc.Url{}}
 }
 
-func (f *fakeRepo) Create(_ context.Context, code, longURL string, expiresAt *time.Time) (store.Url, error) {
-	u := store.Url{ShortCode: code, LongUrl: longURL, ExpiresAt: expiresAt, CreatedAt: time.Now()}
+func (f *fakeRepo) Create(_ context.Context, code, longURL string, expiresAt *time.Time) (sqlc.Url, error) {
+	u := sqlc.Url{ShortCode: code, LongUrl: longURL, ExpiresAt: expiresAt, CreatedAt: time.Now()}
 	f.byCode[code] = u
 	f.byLong[longURL] = u
 	return u, nil
 }
 
-func (f *fakeRepo) FindByCode(_ context.Context, code string) (store.Url, error) {
+func (f *fakeRepo) FindByCode(_ context.Context, code string) (sqlc.Url, error) {
 	u, ok := f.byCode[code]
 	if !ok {
-		return store.Url{}, repository.ErrNotFound
+		return sqlc.Url{}, repository.ErrNotFound
 	}
 	return u, nil
 }
 
-func (f *fakeRepo) FindByLongURL(_ context.Context, longURL string) (store.Url, error) {
+func (f *fakeRepo) FindByLongURL(_ context.Context, longURL string) (sqlc.Url, error) {
 	u, ok := f.byLong[longURL]
 	if !ok {
-		return store.Url{}, repository.ErrNotFound
+		return sqlc.Url{}, repository.ErrNotFound
 	}
 	return u, nil
 }
