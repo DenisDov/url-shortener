@@ -50,7 +50,11 @@ func run(logger *slog.Logger) error {
 	logger.Info("connected to postgres")
 
 	redisCache := cache.NewRedisCache(cfg.RedisAddr, cfg.RedisDB, cfg.RedisPassword, cfg.RedisTLS)
-	defer redisCache.Close()
+	defer func() {
+		if err := redisCache.Close(); err != nil {
+			logger.Error("closing redis", "error", err)
+		}
+	}()
 
 	if err := redisCache.Ping(ctx); err != nil {
 		return err

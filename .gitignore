@@ -20,6 +20,9 @@ vendor/
 # air live-reload build output
 tmp/
 
+# make build / build-local output
+bin/
+
 # Go workspace file
 go.work
 go.work.sum
