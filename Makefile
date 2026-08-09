@@ -85,9 +85,14 @@ vet:
 	@echo "Running go vet..."
 	@go vet ./...
 
-## lint: run golangci-lint (requires it to be installed)
+## lint: run golangci-lint (install separately, see message below)
 .PHONY: lint
 lint:
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo "golangci-lint not found. Install it with: brew install golangci-lint"; \
+		echo "Other options: https://golangci-lint.run/docs/welcome/install/local/"; \
+		echo "(upstream recommends the binary, not 'go install' or 'go tool')"; \
+		exit 1; }
 	@echo "Running linter..."
 	@golangci-lint run ./...
 
@@ -117,9 +122,9 @@ clean: confirm
 	@rm -f $(COVERAGE_FILE)
 	@go clean
 
-## ci: setup, vet, test, and build pipeline
+## ci: setup, vet, lint, test, and build pipeline
 .PHONY: ci
-ci: setup vet test build-local
+ci: setup vet lint test build-local
 
 ## db-backup: dump the compose db to backups/
 .PHONY: db-backup

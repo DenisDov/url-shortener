@@ -7,8 +7,12 @@ on:
       - main
       - master
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
     name: Deploy app
+    needs: ci                    # no deploy unless lint, vet, tests and build pass
     runs-on: ubuntu-latest
     concurrency: deploy-group    # optional: ensure only one action runs at a time
     steps:

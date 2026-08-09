@@ -16,7 +16,7 @@ The Makefile `include`s and exports `.env`, so most targets depend on `DB_DSN` /
 | Regenerate sqlc code | `make sqlc` |
 | Tests | `make test` (`go test -v ./...`) |
 | Vet / lint | `make vet` / `make lint` (golangci-lint must be installed separately) |
-| CI pipeline | `make ci` (tidy, vet, test, build) |
+| CI pipeline | `make ci` (tidy, vet, lint, test, build) |
 | Migrate a remote DB | `make migrate-up DB_DSN="postgresql://..."` |
 | Deploy | `fly deploy` (or push to `main`) |
 
@@ -48,7 +48,8 @@ internal/
 pkg/base62/       alphabet, Encode/Decode, RandomCode (crypto/rand)
 web/              go:embed wrapper; static/ holds the frontend
 fly.toml          Fly.io app config; non-secret [env] only
-.github/workflows/fly-deploy.yml   deploys on push to main
+.github/workflows/ci.yml          lint + vet/test/build; runs on PRs, called by fly-deploy
+.github/workflows/fly-deploy.yml   deploys on push to main, gated on ci.yml
 ```
 
 Dependencies point inward through interfaces. `ShortenerService` depends on `repository.URLRepository` and `cache.URLCache`, both faked in [shortener_test.go](internal/service/shortener_test.go), so service tests need neither Postgres nor Redis. Keep new business logic in `service/`; handlers should stay decode → call → map-error → encode.
@@ -81,5 +82,6 @@ Fly.io + Neon (Postgres) + Upstash (Redis); Dockerfile builds a static binary in
 - `REDIS_TLS=true` is mandatory for Upstash: it is TLS-only and drops a plaintext handshake, surfacing as a bare `EOF` from the startup ping in `main`, which is fatal. `NewRedisCache` sets an empty `tls.Config{}` and lets go-redis fill `ServerName` from the addr.
 - Upstash's REST URL/token are **not** used — the app speaks the Redis protocol over TCP, so it wants the endpoint host:port and password.
 - Nothing runs migrations on deploy. Apply them by hand first: `make migrate-up DB_DSN="<neon-dsn>"` (Neon needs `sslmode=require`).
-- `.github/workflows/fly-deploy.yml` deploys every push to `main` with `flyctl deploy --remote-only`; it does not run `make ci` first.
+- `.github/workflows/fly-deploy.yml` deploys every push to `main` with `flyctl deploy --remote-only`, but only after `ci.yml` passes (`needs: ci`). `ci.yml` calls go directly rather than `make ci`, because the Makefile `include`s `.env` (absent in Actions) and derives `BINARY_NAME` from `SERVICE_NAME`. Migrations still do not run on deploy.
+- golangci-lint is **not** a `go tool` dependency — [upstream recommends the binary install](https://golangci-lint.run/docs/welcome/install/local/) and explicitly advises against `go install` / `go tool`. Locally it comes from homebrew; in CI from `golangci/golangci-lint-action`. The pinned `version:` in `ci.yml` should track what developers install.
 - `min_machines_running = 0` with `auto_stop_machines` — first request after idle pays a cold start. `/health` is liveness only and touches neither Postgres nor Redis, so a green Fly check says nothing about dependencies.

@@ -226,9 +226,13 @@ Deployment gotchas worth knowing:
 - **The rate limiter keys off `RemoteAddr`.** Behind Fly's proxy that is not the end user's address, so on Fly the 20/min budget is shared rather than per-client. Fixing it means switching `ClientIPFromRemoteAddr` to the XFF-based variant in [url_handler.go](internal/handler/url_handler.go) — see the comment there.
 - **`/health` is liveness only.** It answers `200` without touching Postgres or Redis, so a passing Fly health check does not prove the dependencies are reachable.
 
-### Continuous deployment
+### Continuous integration and deployment
 
-[`.github/workflows/fly-deploy.yml`](.github/workflows/fly-deploy.yml) runs `flyctl deploy --remote-only` on every push to `main`, using a `FLY_API_TOKEN` repository secret. It builds on Fly's remote builders, so nothing is built in the Actions runner. Note that it deploys directly — the workflow does not run `make ci` first, and migrations are still your job.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) lints, vets, tests (with `-race`) and builds. It runs on every pull request, and [`.github/workflows/fly-deploy.yml`](.github/workflows/fly-deploy.yml) calls it as a reusable workflow so a push to `main` cannot deploy unless it passes.
+
+The deploy job then runs `flyctl deploy --remote-only`, using a `FLY_API_TOKEN` repository secret. It builds on Fly's remote builders, so nothing is built in the Actions runner. Migrations are still your job — nothing applies them on deploy.
+
+The lint job uses [`golangci/golangci-lint-action`](https://github.com/golangci/golangci-lint-action) rather than `make lint`, with the version pinned to match local installs. golangci-lint is deliberately *not* a `go tool` dependency: [upstream recommends the binary install](https://golangci-lint.run/docs/welcome/install/local/) and advises against `go install` and `go tool`.
 
 ## Development
 
@@ -252,9 +256,9 @@ make run
 | `make new-migration name=add_foo` | Create a new goose migration |
 | `make sqlc` | Regenerate `internal/db/sqlc` from the SQL |
 | `make test` | `go test -v ./...` |
-| `make vet` / `make lint` | `go vet` / `golangci-lint` (must be installed separately) |
+| `make vet` / `make lint` | `go vet` / `golangci-lint` (install separately: `brew install golangci-lint`) |
 | `make build-local` / `make build` | Build for the host / cross-compile to `./bin` |
-| `make ci` | tidy, vet, test, build |
+| `make ci` | tidy, vet, lint, test, build |
 | `make db-backup` / `make db-restore file=...` | `pg_dump` / `pg_restore` through the db container |
 
 goose, sqlc, and air are Go tool dependencies (`go tool` in `go.mod`) — no separate install needed.

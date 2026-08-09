@@ -25,6 +25,7 @@ func NewStore(pool *pgxpool.Pool) *Store {
 	}
 }
 
+//nolint:unused // kept for parity with the other services; no multi-statement transactions here yet
 func (s *Store) execTx(ctx context.Context, fn func(*sqlc.Queries) error) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -32,7 +33,7 @@ func (s *Store) execTx(ctx context.Context, fn func(*sqlc.Queries) error) error 
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op if already committed
 
-	if err := fn(s.Queries.WithTx(tx)); err != nil {
+	if err := fn(s.WithTx(tx)); err != nil {
 		return err
 	}
 
