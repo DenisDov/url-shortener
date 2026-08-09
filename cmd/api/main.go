@@ -20,6 +20,10 @@ import (
 	"github.com/denysdovzhenko/url-shortener/web"
 )
 
+// version is stamped at link time with -X main.version (see the Dockerfile and
+// the Makefile). It stays "dev" for `go run` and air builds.
+var version = "dev"
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -73,7 +77,7 @@ func run(logger *slog.Logger) error {
 		logger,
 	)
 
-	urlHandler := handler.NewURLHandler(shortenerSvc, logger)
+	urlHandler := handler.NewURLHandler(shortenerSvc, logger, version)
 	staticHandler := handler.NewStaticHandler(web.Static())
 	router := handler.NewRouter(urlHandler, staticHandler)
 
@@ -87,7 +91,7 @@ func run(logger *slog.Logger) error {
 
 	serverErr := make(chan error, 1)
 	go func() {
-		logger.Info("starting server", "port", cfg.HTTPPort)
+		logger.Info("starting server", "port", cfg.HTTPPort, "version", version)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErr <- err
 		}

@@ -16,16 +16,21 @@ import (
 )
 
 type URLHandler struct {
-	svc    *service.ShortenerService
-	logger *slog.Logger
+	svc     *service.ShortenerService
+	logger  *slog.Logger
+	version string
 }
 
-func NewURLHandler(svc *service.ShortenerService, logger *slog.Logger) *URLHandler {
-	return &URLHandler{svc: svc, logger: logger}
+func NewURLHandler(svc *service.ShortenerService, logger *slog.Logger, version string) *URLHandler {
+	return &URLHandler{svc: svc, logger: logger, version: version}
 }
 
 func (h *URLHandler) Routes(r chi.Router) {
 	r.Get("/health", h.Health)
+
+	// Under /api rather than /version so it does not burn a short code: chi
+	// matches the literal segment before the /{code} catch-all below.
+	r.Get("/api/v1/version", h.Version)
 
 	// Directly exposed to clients, no reverse proxy in front — if that
 	// changes, swap ClientIPFromRemoteAddr for ClientIPFromXFF/ClientIPFromHeader
@@ -126,6 +131,16 @@ func (h *URLHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 
 func (h *URLHandler) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+type versionResponse struct {
+	Version string `json:"version"`
+}
+
+// Version reports the build the binary was stamped with, so a deploy can be
+// confirmed without reading Fly's machine list.
+func (h *URLHandler) Version(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, versionResponse{Version: h.version})
 }
 
 func (h *URLHandler) handleServiceError(w http.ResponseWriter, err error) {

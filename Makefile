@@ -7,6 +7,11 @@ endif
 MAIN_PACKAGE_PATH = ./cmd/api/
 BINARY_NAME = $(SERVICE_NAME)
 BUILD_DIR = ./bin
+
+# Stamped into main.version and served at /api/v1/version. The fallback covers
+# a checkout with no git available (a source tarball, say).
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS = -ldflags="-X main.version=$(VERSION)"
 MIGRATIONS_DIR := internal/db/migrations
 BACKUP_DIR := backups
 COVERAGE_FILE := coverage.txt
@@ -57,7 +62,7 @@ sqlc:          ; go tool sqlc generate
 .PHONY: run
 run:
 	@echo "Starting application..."
-	@DATABASE_URL="$(DB_DSN)" go run $(MAIN_PACKAGE_PATH)
+	@DATABASE_URL="$(DB_DSN)" go run $(LDFLAGS) $(MAIN_PACKAGE_PATH)
 
 ## dev: run the application with live-reload
 .PHONY: dev
@@ -69,15 +74,15 @@ dev:
 .PHONY: build-local
 build-local:
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE_PATH)
+	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE_PATH)
 
 ## build: cross-compile the application for darwin/linux/windows
 .PHONY: build
 build:
 	@mkdir -p $(BUILD_DIR)
-	GOARCH=amd64 GOOS=darwin go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin $(MAIN_PACKAGE_PATH)
-	GOARCH=amd64 GOOS=linux go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(MAIN_PACKAGE_PATH)
-	GOARCH=amd64 GOOS=windows go build -o $(BUILD_DIR)/$(BINARY_NAME)-windows.exe $(MAIN_PACKAGE_PATH)
+	GOARCH=amd64 GOOS=darwin go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin $(MAIN_PACKAGE_PATH)
+	GOARCH=amd64 GOOS=linux go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(MAIN_PACKAGE_PATH)
+	GOARCH=amd64 GOOS=windows go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows.exe $(MAIN_PACKAGE_PATH)
 
 ## vet: run go vet
 .PHONY: vet

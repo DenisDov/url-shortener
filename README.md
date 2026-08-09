@@ -124,6 +124,16 @@ Unlike the redirect, this endpoint still serves expired links — they come back
 
 `200 OK` with `{"status":"ok"}`. Liveness only; it does not check Postgres or Redis.
 
+### `GET /api/v1/version`
+
+`200 OK` with the build the running binary was stamped with:
+
+```json
+{ "version": "v1.0.0-3-gedb16bc" }
+```
+
+The value comes from `git describe --tags --always --dirty` at build time, not from configuration — see [Versioning](#versioning). It is `dev` for `go run`, `make dev`, and plain `docker build`.
+
 ### `GET /` and `GET /static/*`
 
 The web UI and its assets. See [Web UI](#web-ui).
@@ -144,7 +154,7 @@ There is no authentication. `POST /api/v1/shorten` is rate limited to 20 request
 
 ## Web UI
 
-`GET /` serves a single page for shortening a URL and copying the result — a form, an expiry dropdown, and the short link. It covers `POST /api/v1/shorten` only; there is no UI for lookup or stats.
+`GET /` serves a single page for shortening a URL and copying the result — a form, an expiry dropdown, and the short link. Beyond `POST /api/v1/shorten` it reads `GET /api/v1/version` to show the running build in the footer; there is no UI for lookup or stats.
 
 <p align="center">
   <img src="docs/web-ui.png" alt="The web UI: a long URL field, an expiry dropdown, a Shorten button, and the resulting short link with a Copy button" width="560">
@@ -230,9 +240,25 @@ Deployment gotchas worth knowing:
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) lints, vets, tests (with `-race`) and builds. It runs on every pull request, and [`.github/workflows/fly-deploy.yml`](.github/workflows/fly-deploy.yml) calls it as a reusable workflow so a push to `main` cannot deploy unless it passes.
 
-The deploy job then runs `flyctl deploy --remote-only`, using a `FLY_API_TOKEN` repository secret. It builds on Fly's remote builders, so nothing is built in the Actions runner. Migrations are still your job — nothing applies them on deploy.
+The deploy job then runs `flyctl deploy --remote-only --build-arg VERSION=...`, using a `FLY_API_TOKEN` repository secret. It builds on Fly's remote builders, so nothing is built in the Actions runner. Migrations are still your job — nothing applies them on deploy.
 
 The lint job uses [`golangci/golangci-lint-action`](https://github.com/golangci/golangci-lint-action) rather than `make lint`, with the version pinned to match local installs. golangci-lint is deliberately *not* a `go tool` dependency: [upstream recommends the binary install](https://golangci-lint.run/docs/welcome/install/local/) and advises against `go install` and `go tool`.
+
+### Versioning
+
+`git describe --tags --always --dirty` is stamped into the binary at link time as `main.version`, and served at [`GET /api/v1/version`](#get-apiv1version) and in the footer of the web UI. It also appears in the `starting server` log line, so `fly logs` shows which build booted.
+
+Three places produce it, and all three default to `dev`:
+
+| Build | Where the value comes from |
+| --- | --- |
+| `make build` / `make build-local` / `make run` | `VERSION` in the [Makefile](Makefile), overridable: `make build VERSION=v2.0.0` |
+| `flyctl deploy` from CI | `--build-arg VERSION=...`, computed in [fly-deploy.yml](.github/workflows/fly-deploy.yml) |
+| `go run`, `make dev`, `docker compose up` | Nothing — stays `dev`, which is the useful signal that you are on a local build |
+
+The deploy workflow checks out with `fetch-depth: 0` because `actions/checkout` clones shallowly by default and `git describe` needs tags and history.
+
+This is *not* configuration: it does not belong in `fly.toml` `[env]` or `internal/config`, because it describes the binary rather than the environment it runs in. `debug.ReadBuildInfo()` would be the tidier source, but `.git` is in `.dockerignore`, so the deployed image would report `(devel)` with no `vcs.revision`. Tag a release with `git tag -a v1.2.3 -m ...` and push the tag to get a clean version string instead of `v1.0.0-7-gabc1234`.
 
 ## Development
 

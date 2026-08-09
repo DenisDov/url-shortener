@@ -8,6 +8,7 @@ const shortLink = document.getElementById("short-url");
 const longUrlOut = document.getElementById("long-url");
 const expiresOut = document.getElementById("expires");
 const copyButton = document.getElementById("copy");
+const versionOut = document.getElementById("version");
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -129,3 +130,21 @@ function selectText(node) {
   selection.removeAllRanges();
   selection.addRange(range);
 }
+
+// Best effort, and deliberately not routed through showError: a version we
+// cannot read is not a user-facing failure, so the line just stays hidden.
+(async () => {
+  try {
+    const response = await fetch("/api/v1/version");
+    if (!response.ok) return;
+
+    const payload = await response.json();
+    if (!payload?.version) return;
+
+    // git describe already emits the leading "v", so show it verbatim.
+    versionOut.textContent = payload.version;
+    versionOut.hidden = false;
+  } catch {
+    // Server unreachable or the response was not JSON; leave the line hidden.
+  }
+})();
