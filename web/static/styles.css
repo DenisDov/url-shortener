@@ -99,6 +99,14 @@ button:disabled {
   font-size: 0.8rem;
 }
 
+/* .fineprint already supplies the muted colour and size; add the separator. */
+.version {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+
 .error {
   margin: 1.25rem 0 0;
   padding: 0.7rem 0.8rem;
