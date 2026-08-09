@@ -250,7 +250,7 @@ make run
 | `make run` / `make dev` | Run locally, with or without live reload |
 | `make migrate-up` / `make migrate-down` | Apply / roll back one migration |
 | `make new-migration name=add_foo` | Create a new goose migration |
-| `make sqlc` | Regenerate `internal/store` from the SQL |
+| `make sqlc` | Regenerate `internal/db/sqlc` from the SQL |
 | `make test` | `go test -v ./...` |
 | `make vet` / `make lint` | `go vet` / `golangci-lint` (must be installed separately) |
 | `make build-local` / `make build` | Build for the host / cross-compile to `./bin` |
@@ -263,7 +263,7 @@ goose, sqlc, and air are Go tool dependencies (`go tool` in `go.mod`) — no sep
 
 1. `make new-migration name=whatever` and write the `-- +goose Up` / `Down` blocks in `internal/db/migrations/`.
 2. Edit or add queries in `internal/db/queries/urls.sql`.
-3. `make sqlc` to regenerate `internal/store/`. **Never edit `internal/store/` by hand** — it is generated.
+3. `make sqlc` to regenerate `internal/db/sqlc/`. **Never edit `internal/db/sqlc/` by hand** — it is generated.
 4. `make migrate-up`.
 
 ## Architecture
@@ -275,8 +275,7 @@ internal/
   service/        shortening, resolution, validation, collision retry
   repository/     URLRepository interface over the generated queries
   cache/          URLCache interface + Redis implementation
-  store/          sqlc-generated code (do not edit)
-  db/             goose migrations + sqlc query definitions
+  db/             goose migrations, sqlc query definitions, and sqlc/ generated code (do not edit)
   config/         env parsing and validation
 pkg/base62/       base62 alphabet, encode/decode, crypto/rand code generation
 web/              go:embed wrapper + static/ frontend assets

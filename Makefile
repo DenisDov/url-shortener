@@ -49,7 +49,7 @@ new-migration:
 	@test -n "$(name)" || { echo "usage: make new-migration name=add_foo"; exit 1; }
 	go tool goose -dir $(MIGRATIONS_DIR) create $(name) sql
 
-## sqlc: regenerate internal/store from db/queries
+## sqlc: regenerate internal/db/sqlc from db/queries
 .PHONY: sqlc
 sqlc:          ; go tool sqlc generate
 
