@@ -298,7 +298,7 @@ goose, sqlc, and air are Go tool dependencies (`go tool` in `go.mod`) — no sep
 
 ## Architecture
 
-An interactive architecture diagram (components, request paths, deploy flow) is available [here](https://claude.ai/code/artifact/37a7e9d8-732b-4b68-a057-550bcecd578a).
+An interactive architecture diagram (components, request paths, deploy flow) is available [here](https://url-shortener-kind-field-2317.fly.dev/hbjAMpQ).
 
 ```
 cmd/api/          wiring: config, pgx pool, redis, server, graceful shutdown
